@@ -26,21 +26,53 @@ pub fn zigMain() !void {
 
     try db.exec("CREATE TABLE test(id integer primary key, name text, data blob)", .{}, .{});
 
+    // Use it as a full query first
+
     db.execDynamic(data, .{}, .{}) catch |err| switch (err) {
         error.SQLiteError => return,
         error.ExecReturnedData => return,
         else => return err,
     };
 
+    // Use it as a bind parameter in an insert
+
+    var name = sqlite.Text{ .data = "Fuzzing" };
+    var data_blob = sqlite.Blob{ .data = data };
+
     db.execDynamic(
-        "INSERT INTO test(name, data) VALUES($name, $data)",
+        "INSERT INTO test(name, data) VALUES($name, $date)",
         .{},
         .{
-            .name = data,
-            .data = data,
+            .name = name,
+            .data = data_blob,
         },
     ) catch |err| switch (err) {
         error.SQLiteError => return,
         else => return err,
     };
+
+    // Then read it back
+
+    const read_data = db.oneDynamicAlloc(
+        []const u8,
+        allocator,
+        "SELECT data FROM test WHERE name = $name",
+        .{},
+        .{
+            .name = name,
+        },
+    ) catch |err| switch (err) {
+        error.SQLiteError => return,
+        else => return err,
+    };
+
+    if (read_data) |rd| {
+        defer allocator.free(rd);
+
+        if (!std.mem.eql(u8, data, rd)) {
+            return error.DataReadNotEqual;
+        }
+    } else {
+        return error.NoDataRead;
+    }
 }
