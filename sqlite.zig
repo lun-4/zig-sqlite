@@ -340,9 +340,7 @@ pub const Db = struct {
         switch (options.mode) {
             .File => |path| {
                 var db: ?*c.sqlite3 = undefined;
-                // TODO: remove workaround for stage2. file ziglang/zig issue?
-                // "error: expected type '[*c]const u8', found '[:0]const u8'"
-                const result = c.sqlite3_open_v2(@ptrCast([*c]const u8, path.ptr), &db, flags, null);
+                const result = c.sqlite3_open_v2(path.ptr, &db, flags, null);
                 if (result != c.SQLITE_OK or db == null) {
                     if (db) |v| {
                         diags.err = getLastDetailedErrorFromDb(v);
